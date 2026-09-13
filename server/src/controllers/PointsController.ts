@@ -1,51 +1,67 @@
-import { Request, Response } from 'express'
-import knex from '../database/connection'
+import fs from 'node:fs/promises'
+import type { Request, Response } from 'express'
+
+import knex from '../database/connection.ts'
+import { appConfig } from '../config/env.ts'
+import { hasValidImageSignature } from '../utils/imageSignature.ts'
+
+const POINT_FIELDS = [
+    'points.id',
+    'points.image',
+    'points.name',
+    'points.email',
+    'points.whatsapp',
+    'points.latitude',
+    'points.longitude',
+    'points.city',
+    'points.uf',
+]
+
+function parseItems(items: string) {
+    return [...new Set(items.split(',').map(item => Number(item.trim())))]
+}
+
+function serializePoint<T extends { image: string }>(point: T) {
+    return {
+        ...point,
+        image_url: `${appConfig.url}/uploads/${point.image}`
+    }
+}
 
 class PointsController {
     async index(request: Request, response: Response) {
-        const { city, uf, items } = request.query
+        const { city, uf, items } = request.query as { city: string, uf: string, items?: string }
 
-        const parsedItems = String(items)
-            .split(',')
-            .map(items => Number(items.trim()))
-
-        const points = await knex('points')
-            .join('point_items', 'points.id', '=', 'point_items.point_id')
-            .whereIn('point_items.item_id', parsedItems)
-            .where('city', String(city))
-            .where('uf', String(uf))
+        const query = knex('points')
+            .where('city', city)
+            .where('uf', uf)
             .distinct()
-            .select('points.*')
+            .select(POINT_FIELDS)
 
-        const serializedPoints = points.map(point => {
-            return {
-                ...point,
-                image_url: `http://192.168.1.100:3333/uploads/${point.image}`
-            }
-        })
+        if (items)
+            query
+                .join('point_items', 'points.id', '=', 'point_items.point_id')
+                .whereIn('point_items.item_id', parseItems(items))
 
-        return response.json(serializedPoints)
+        const points = await query
+
+        return response.json(points.map(serializePoint))
     }
 
     async show(request: Request, response: Response) {
         const { id } = request.params
 
-        const point = await knex('points').where('id', id).first()
+        const point = await knex('points').where('id', id).first(POINT_FIELDS)
 
         if (!point)
-            return response.status(400).json({ message: 'Point not found.' })
-
-        const serializedPoint = {
-            ...point,
-            image_url: `http://192.168.1.100:3333/uploads/${point.image}`
-        }
+            return response.status(404).json({ message: 'Point not found.' })
 
         const items = await knex('items')
             .join('point_items', 'items.id', '=', 'point_items.item_id')
             .where('point_items.point_id', id)
             .select('items.title')
 
-        return response.json({ point: serializedPoint, items })
+        return response.json({ point: serializePoint(point), items })
     }
 
     async create(request: Request, response: Response) {
@@ -60,42 +76,53 @@ class PointsController {
             items
         } = request.body
 
-        const trx = await knex.transaction()
+        const file = request.file
+
+        if (!file)
+            return response.status(400).json({ message: 'Image is required.' })
+
+        if (!await hasValidImageSignature(file.path, file.mimetype)) {
+            await fs.rm(file.path, { force: true })
+            return response.status(400).json({ message: 'Image must be a JPEG, PNG or WebP file.' })
+        }
+
+        const itemIds = parseItems(items)
+
+        const [{ count }] = await knex('items').whereIn('id', itemIds).count({ count: '*' })
+
+        if (Number(count) !== itemIds.length) {
+            await fs.rm(file.path, { force: true })
+            return response.status(400).json({ message: 'One or more items do not exist.' })
+        }
 
         const point = {
-            image: request.file.filename,
+            image: file.filename,
             name,
             email,
             whatsapp,
             latitude,
             longitude,
             city,
-            uf
+            uf,
+            user_id: request.userId,
         }
 
-        const insertedIds = await trx('points').insert(point)
+        try {
+            const point_id = await knex.transaction(async trx => {
+                const [id] = await trx('points').insert(point)
 
-        const point_id = insertedIds[0]
+                await trx('point_items').insert(itemIds.map(item_id => ({ item_id, point_id: id })))
 
-        const pointItems = items
-            .split(',')
-            .map((item: string) => Number(item.trim()))
-            .map((item_id: number) => {
-                return {
-                    item_id,
-                    point_id
-                }
+                return id
             })
 
-        await trx('point_items').insert(pointItems)
+            const { user_id, ...publicPoint } = point
 
-        await trx.commit()
-
-        return response.json({
-            id: point_id,
-            ...point
-        })
-
+            return response.status(201).json(serializePoint({ id: point_id, ...publicPoint }))
+        } catch (err) {
+            await fs.rm(file.path, { force: true })
+            throw err
+        }
     }
 }
 

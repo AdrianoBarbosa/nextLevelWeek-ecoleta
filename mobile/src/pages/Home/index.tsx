@@ -1,18 +1,19 @@
 import React, { useState } from "react";
 import { Feather as Icon } from "@expo/vector-icons";
-import { View, ImageBackground, Image, StyleSheet, Text, TextInput, KeyboardAvoidingView, Platform } from "react-native";
-import { RectButton } from "react-native-gesture-handler";
+import { View, TouchableOpacity, ImageBackground, Image, StyleSheet, Text, TextInput, KeyboardAvoidingView, Platform } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../../types/navigation";
 
 const Home = () => {
   const [uf, setUf] = useState('')
   const [city, setCity] = useState('')
-  const navigation = useNavigation()
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'Home'>>()
 
   function handleNavigateToPoints() {
     navigation.navigate('Points', {
-      uf,
-      city
+      uf: uf.trim().toUpperCase(),
+      city: city.trim()
     })
   }
 
@@ -47,14 +48,14 @@ const Home = () => {
             autoCorrect={false}
             onChangeText={setCity} />
 
-          <RectButton style={styles.button} onPress={handleNavigateToPoints}>
+          <TouchableOpacity activeOpacity={0.8} style={styles.button} onPress={handleNavigateToPoints}>
             <View style={styles.buttonIcon}>
               <Text>
                 <Icon name="arrow-right" color="#FFF" size={24} />
               </Text>
             </View>
             <Text style={styles.buttonText}>Entrar</Text>
-          </RectButton>
+          </TouchableOpacity>
         </View>
       </ImageBackground>
     </KeyboardAvoidingView>

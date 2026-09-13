@@ -1,15 +1,12 @@
 import React, { useEffect, useState } from "react"
 import { Feather as Icon, FontAwesome } from "@expo/vector-icons"
-import { useNavigation, useRoute } from "@react-navigation/native"
-import { View, StyleSheet, TouchableOpacity, Image, Text, SafeAreaView, Linking } from "react-native"
-import Constants from 'expo-constants'
-import { RectButton } from "react-native-gesture-handler";
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native"
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack"
+import type { RootStackParamList } from "../../types/navigation"
+import { View, StyleSheet, TouchableOpacity, Image, Text, Linking } from "react-native"
+import { SafeAreaView } from "react-native-safe-area-context"
 import api from '../../services/api'
 import * as MailComposer from "expo-mail-composer"
-
-interface Params {
-  point_id: number
-}
 
 interface Data {
   point: {
@@ -29,17 +26,20 @@ interface Data {
 const Detail = () => {
   const [data, setData] = useState<Data>({} as Data)
 
-  const navigation = useNavigation()
-  const route = useRoute()
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'Detail'>>()
+  const route = useRoute<RouteProp<RootStackParamList, 'Detail'>>()
 
-  const routeParams = route.params as Params
+  const routeParams = route.params
 
   useEffect(() => {
     api.get(`points/${routeParams.point_id}`)
       .then(response => {
         setData(response.data)
       })
-  }, [])
+      .catch(() => {
+        navigation.goBack()
+      })
+  }, [routeParams.point_id, navigation])
 
   function handleNavigateBack() {
     navigation.goBack()
@@ -53,7 +53,7 @@ const Detail = () => {
   }
 
   function handleWhatsapp() {
-    Linking.openURL(`whatsapp://send?phone=${data.point.whatsapp}&text=Tenho interesse sobre coleta de resíduos`)
+    Linking.openURL(`whatsapp://send?phone=${data.point.whatsapp}&text=${encodeURIComponent('Tenho interesse sobre coleta de resíduos')}`)
   }
 
   if (!data.point) {
@@ -78,15 +78,15 @@ const Detail = () => {
         </View>
       </View>
       <View style={styles.footer}>
-        <RectButton style={styles.button} onPress={handleWhatsapp}>
+        <TouchableOpacity activeOpacity={0.8} style={styles.button} onPress={handleWhatsapp}>
           <FontAwesome name="whatsapp" size={20} color='#FFF' />
           <Text style={styles.buttonText}>WhatsApp</Text>
-        </RectButton>
+        </TouchableOpacity>
 
-        <RectButton style={styles.button} onPress={handleComposeMail}>
+        <TouchableOpacity activeOpacity={0.8} style={styles.button} onPress={handleComposeMail}>
           <Icon name="mail" size={20} color='#FFF' />
           <Text style={styles.buttonText}>E-mail</Text>
-        </RectButton>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   )

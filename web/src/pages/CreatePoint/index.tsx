@@ -1,16 +1,16 @@
-import React, { useEffect, useState, ChangeEvent, FormEvent } from 'react'
-import { Link, useHistory } from "react-router-dom";
-import { FiArrowLeft } from "react-icons/fi";
-import { Map, TileLayer, Marker } from 'react-leaflet'
-import axios from "axios";
-import { LeafletMouseEvent } from "leaflet";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router'
+import { FiArrowLeft } from 'react-icons/fi'
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
+import axios from 'axios'
 import api from '../../services/api'
 
-import Dropzone from '../../components/Dopzone'
+import Dropzone from '../../components/Dropzone'
+import './markerIcon'
 
 import './styles.css'
 
-import logo from "../../assets/logo.svg";
+import logo from '../../assets/logo.svg'
 
 interface Item {
     id: number,
@@ -26,12 +26,35 @@ interface IBGECityResponse {
     nome: string
 }
 
+type Position = [number, number]
+
+// O MapContainer só usa o center inicial, então a posição do usuário precisa ser aplicada depois.
+const MapCenter = ({ position }: { position: Position }) => {
+    const map = useMap()
+
+    useEffect(() => {
+        map.setView(position)
+    }, [map, position])
+
+    return null
+}
+
+const MapClick = ({ onClick }: { onClick: (position: Position) => void }) => {
+    useMapEvents({
+        click(event) {
+            onClick([event.latlng.lat, event.latlng.lng])
+        }
+    })
+
+    return null
+}
+
 const CreatePoint = () => {
     const [items, setItems] = useState<Item[]>([])
     const [ufs, setUfs] = useState<string[]>([])
     const [cities, setCities] = useState<string[]>([])
 
-    const [initialPosition, setInitialPosition] = useState<[number, number]>([0, 0])
+    const [initialPosition, setInitialPosition] = useState<Position>([-14.235, -51.9253])
 
     const [formData, setFormData] = useState({
         name: '',
@@ -42,13 +65,13 @@ const CreatePoint = () => {
     const [selectedUf, setSelectedUf] = useState('0')
     const [selectedCity, setSelectedCity] = useState('0')
     const [selectedItems, setSelectedItems] = useState<number[]>([])
-    const [selectedPosition, setSelectedPosition] = useState<[number, number]>([0, 0])
+    const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
     const [selectedFile, setSelectedFile] = useState<File>()
 
-    const history = useHistory()
+    const navigate = useNavigate()
 
     useEffect(() => {
-        navigator.geolocation.getCurrentPosition(position => {
+        navigator.geolocation?.getCurrentPosition(position => {
             const { latitude, longitude } = position.coords
 
             setInitialPosition([latitude, longitude])
@@ -56,7 +79,7 @@ const CreatePoint = () => {
     }, [])
 
     useEffect(() => {
-        api.get('items').then(response => {
+        api.get<Item[]>('items').then(response => {
             setItems(response.data)
         })
     }, [])
@@ -64,39 +87,36 @@ const CreatePoint = () => {
     useEffect(() => {
         axios.get<IBGEUFResponse[]>('https://servicodados.ibge.gov.br/api/v1/localidades/estados')
             .then(response => {
-                const ufInitials = response.data.map(uf => uf.sigla)
+                const ufInitials = response.data.map(uf => uf.sigla).sort()
 
                 setUfs(ufInitials)
             })
     }, [])
 
     useEffect(() => {
+        setCities([])
+
         if (selectedUf === '0') return
+
+        // Ignora respostas de uma UF anterior que cheguem depois da troca.
+        let ignore = false
+
         axios.get<IBGECityResponse[]>(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${selectedUf}/municipios`)
             .then(response => {
-                const cityNames = response.data.map(city => city.nome)
-
-                setCities(cityNames)
+                if (!ignore)
+                    setCities(response.data.map(city => city.nome))
             })
+
+        return () => { ignore = true }
     }, [selectedUf])
 
     function handleSelectUf(event: ChangeEvent<HTMLSelectElement>) {
-        const uf = event.target.value
-
-        setSelectedUf(uf)
+        setSelectedUf(event.target.value)
+        setSelectedCity('0')
     }
 
     function handleSelectCity(event: ChangeEvent<HTMLSelectElement>) {
-        const city = event.target.value
-
-        setSelectedCity(city)
-    }
-
-    function handleMapClick(event: LeafletMouseEvent) {
-        setSelectedPosition([
-            event.latlng.lat,
-            event.latlng.lng
-        ])
+        setSelectedCity(event.target.value)
     }
 
     function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
@@ -106,44 +126,52 @@ const CreatePoint = () => {
     }
 
     function handleSelectedItem(id: number) {
-        const alreadySelected = selectedItems.findIndex(item => item === id)
-
-        if (alreadySelected >= 0) {
-            const filteredItems = selectedItems.filter(items => items !== id)
-
-            setSelectedItems(filteredItems)
-        }
+        if (selectedItems.includes(id))
+            setSelectedItems(selectedItems.filter(item => item !== id))
         else
             setSelectedItems([...selectedItems, id])
+    }
+
+    function validationError() {
+        if (!selectedFile) return 'Envie uma imagem do estabelecimento.'
+        if (!selectedPosition) return 'Selecione o endereço no mapa.'
+        if (selectedUf === '0' || selectedCity === '0') return 'Selecione o estado e a cidade.'
+        if (!selectedItems.length) return 'Selecione ao menos um item de coleta.'
+        return null
     }
 
     async function handleSubmit(event: FormEvent) {
         event.preventDefault()
 
+        const error = validationError()
+
+        if (error)
+            return alert(error)
+
         const { name, email, whatsapp } = formData
-        const uf = selectedUf
-        const city = selectedCity
-        const [latitude, longitude] = selectedPosition
-        const items = selectedItems
-        
+        const [latitude, longitude] = selectedPosition!
+
         const data = new FormData()
 
         data.append('name', name)
         data.append('email', email)
-        data.append('whatsapp', whatsapp)
-        data.append('uf', uf)
-        data.append('city', city)
+        data.append('whatsapp', whatsapp.replace(/\D/g, ''))
+        data.append('uf', selectedUf)
+        data.append('city', selectedCity)
         data.append('latitude', String(latitude))
         data.append('longitude', String(longitude))
-        data.append('items', items.join(','))
-        if (selectedFile)
-            data.append('image', selectedFile)
+        data.append('items', selectedItems.join(','))
+        data.append('image', selectedFile!)
 
-        await api.post('points', data)
+        try {
+            await api.post('points', data)
 
-        alert('Ponto de coleta criado.')
+            alert('Ponto de coleta criado.')
 
-        history.push('/')
+            navigate('/')
+        } catch {
+            alert('Erro ao criar o ponto de coleta, confira os dados e tente novamente.')
+        }
     }
 
     return (
@@ -169,18 +197,18 @@ const CreatePoint = () => {
 
                     <div className="field">
                         <label htmlFor="name">Nome da entidade</label>
-                        <input type="text" name="name" id="name" onChange={handleInputChange} />
+                        <input type="text" name="name" id="name" required onChange={handleInputChange} />
                     </div>
 
                     <div className="field-group">
                         <div className="field">
                             <label htmlFor="email">E-mail</label>
-                            <input type="email" name="email" id="email" onChange={handleInputChange} />
+                            <input type="email" name="email" id="email" required onChange={handleInputChange} />
                         </div>
 
                         <div className="field">
                             <label htmlFor="whatsapp">WhatsApp</label>
-                            <input type="text" name="whatsapp" id="whatsapp" onChange={handleInputChange} />
+                            <input type="text" name="whatsapp" id="whatsapp" required onChange={handleInputChange} />
                         </div>
                     </div>
                 </fieldset>
@@ -188,17 +216,20 @@ const CreatePoint = () => {
                 <fieldset>
                     <legend>
                         <h2>Endereço</h2>
-                        <span>Selecione o endreço no mapa</span>
+                        <span>Selecione o endereço no mapa</span>
                     </legend>
 
-                    <Map center={initialPosition} zoom={15} onClick={handleMapClick}>
+                    <MapContainer center={initialPosition} zoom={15}>
                         <TileLayer
-                            attribution='&amp;copy <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+                            attribution='&amp;copy <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         />
 
-                        <Marker position={selectedPosition} />
-                    </Map>
+                        <MapCenter position={initialPosition} />
+                        <MapClick onClick={setSelectedPosition} />
+
+                        {selectedPosition && <Marker position={selectedPosition} />}
+                    </MapContainer>
 
                     <div className="field-group">
                         <div className="field">
@@ -212,8 +243,8 @@ const CreatePoint = () => {
                         </div>
                         <div className="field">
                             <label htmlFor="city">Cidade</label>
-                            <select name="city" id="city" onChange={handleSelectCity}>
-                                <option value={selectedCity}>Selecione uma cidade</option>
+                            <select name="city" id="city" value={selectedCity} onChange={handleSelectCity}>
+                                <option value="0">Selecione uma cidade</option>
                                 {cities.map(city => (
                                     <option key={city} value={city}>{city}</option>
                                 ))}

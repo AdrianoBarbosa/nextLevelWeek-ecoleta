@@ -1,0 +1,97 @@
+.page-auth {
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 30px;
+}
+
+.page-auth header {
+    margin-top: 48px;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.page-auth header a {
+    color: var(--title-color);
+    font-weight: bold;
+    text-decoration: none;
+
+    display: flex;
+    align-items: center;
+}
+
+.page-auth header a svg {
+    margin-right: 16px;
+    color: var(--primary-color);
+}
+
+.page-auth form {
+    margin: 80px auto;
+    padding: 64px;
+    max-width: 480px;
+    background: #FFF;
+    border-radius: 8px;
+
+    display: flex;
+    flex-direction: column;
+}
+
+.page-auth form h1 {
+    font-size: 36px;
+    margin-bottom: 40px;
+}
+
+.page-auth form .field {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 24px;
+}
+
+.page-auth form .field label {
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.page-auth form .field input {
+    background: #F0F0F5;
+    border-radius: 8px;
+    border: 0;
+    padding: 16px 24px;
+    font-size: 16px;
+    color: #6C6C80;
+}
+
+.page-auth form .error {
+    color: #E83F5B;
+    margin-bottom: 16px;
+}
+
+.page-auth form button {
+    height: 56px;
+    background: var(--primary-color);
+    border-radius: 8px;
+    color: #FFF;
+    font-weight: bold;
+    font-size: 16px;
+    border: 0;
+    margin-top: 16px;
+    transition: background-color 0.2s;
+    cursor: pointer;
+}
+
+.page-auth form button:hover {
+    background: #2FB86E;
+}
+
+.page-auth form button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.page-auth form > a {
+    margin-top: 24px;
+    text-align: center;
+    color: var(--title-color);
+}

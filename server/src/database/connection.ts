@@ -1,13 +1,27 @@
-import knex from 'knex'
-import path from 'path'
+import path from 'node:path'
+import knex, { type Knex } from 'knex'
 
-const connnection = knex(
-{
-    client: 'sqlite3',
+import { appConfig } from '../config/env.ts'
+import { paths } from '../config/paths.ts'
+
+export const config: Knex.Config = {
+    client: 'better-sqlite3',
     connection: {
-        filename: path.resolve(__dirname, 'database.sqlite')
+        filename: appConfig.isTest
+            ? ':memory:'
+            : process.env.DB_FILENAME || path.join(paths.database, 'database.sqlite'),
     },
-    useNullAsDefault: true
-})
+    migrations: {
+        directory: path.join(paths.database, 'migrations'),
+        loadExtensions: ['.ts'],
+    },
+    seeds: {
+        directory: path.join(paths.database, 'seeds'),
+        loadExtensions: ['.ts'],
+    },
+    useNullAsDefault: true,
+}
 
-export default connnection
+const connection = knex(config)
+
+export default connection

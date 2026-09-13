@@ -18,6 +18,30 @@
   
   #page-home .content header {
     margin: 48px 0 0;
+    width: 100%;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  #page-home .content header a,
+  #page-home .content header button {
+    color: var(--title-color);
+    font-weight: bold;
+    font-size: 16px;
+    text-decoration: none;
+    background: none;
+    border: 0;
+    cursor: pointer;
+
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #page-home .content header svg {
+    color: var(--primary-color);
   }
   
   #page-home .content main {
@@ -91,6 +115,8 @@
   
     #page-home .content header {
       margin: 48px auto 0;
+      flex-direction: column;
+      gap: 16px;
     }
   
     #page-home .content main {

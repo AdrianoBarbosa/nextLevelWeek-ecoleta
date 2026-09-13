@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react"
 import Constants from "expo-constants"
 import { Feather as Icon } from "@expo/vector-icons"
-import { useNavigation, useRoute } from "@react-navigation/native"
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native"
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack"
+import type { RootStackParamList } from "../../types/navigation"
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Alert } from "react-native"
 import MapView, { Marker } from "react-native-maps"
 import { SvgUri } from "react-native-svg"
@@ -23,11 +25,6 @@ interface Point {
   longitude: number
 }
 
-interface Params {
-  uf: string,
-  city: string
-}
-
 const Points = () => {
   const [items, setItems] = useState<Item[]>([])
   const [points, setPoints] = useState<Point[]>([])
@@ -35,20 +32,24 @@ const Points = () => {
   
   const [initialPosition, setInitialPosition] = useState<[number, number]>([0, 0])
   
-  const navigation = useNavigation()
-  const route = useRoute()
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'Points'>>()
+  const route = useRoute<RouteProp<RootStackParamList, 'Points'>>()
 
-  const routeParams = route.params as Params
+  const routeParams = route.params
 
   useEffect(() => {
-    api.get('items').then(response => {
-      setItems(response.data)
-    })
+    api.get('items')
+      .then(response => {
+        setItems(response.data)
+      })
+      .catch(() => {
+        Alert.alert('Oooops...', 'Não foi possível carregar os itens de coleta')
+      })
   }, [])
 
   useEffect(() => {
     async function loadPosition() {
-      const { status } = await Location.requestPermissionsAsync()
+      const { status } = await Location.requestForegroundPermissionsAsync()
 
       if (status !== 'granted') {
         Alert.alert('Oooops...', 'Precisamos de sua localização para obter a localização')
@@ -70,12 +71,16 @@ const Points = () => {
       params: {
         city: routeParams.city,
         uf: routeParams.uf,
-        items: selectedItems
+        items: selectedItems.length ? selectedItems.join(',') : undefined
       }
-    }).then(response => {
-      setPoints(response.data)
     })
-  }, [selectedItems])
+      .then(response => {
+        setPoints(response.data)
+      })
+      .catch(() => {
+        setPoints([])
+      })
+  }, [selectedItems, routeParams.city, routeParams.uf])
 
   function handleNavigateBack() {
     navigation.goBack()
@@ -120,12 +125,13 @@ const Points = () => {
             >
               {points.map(point => (
                 <Marker
+                  testID={`point-${point.id}`}
                   key={String(point.id)}
                   style={styles.mapMarker}
                   onPress={() => handleNavigateToDetail(point.id)}
                   coordinate={{
-                    latitude: point.latitude,
-                    longitude: point.longitude
+                    latitude: Number(point.latitude),
+                    longitude: Number(point.longitude)
                   }}>
                   <View style={styles.mapMarkerContainer}>
                     <Image style={styles.mapMarkerImage} source={{ uri: point.image_url }} />

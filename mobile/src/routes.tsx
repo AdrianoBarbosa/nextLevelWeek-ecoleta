@@ -1,20 +1,21 @@
 import React from "react"
 import { NavigationContainer } from "@react-navigation/native"
-import { createStackNavigator } from "@react-navigation/stack"
+import { createNativeStackNavigator } from "@react-navigation/native-stack"
 
 import Home from "./pages/Home";
 import Points from "./pages/Points";
 import Detail from "./pages/Detail";
+import type { RootStackParamList } from "./types/navigation";
 
-const AppStack = createStackNavigator()
+const AppStack = createNativeStackNavigator<RootStackParamList>()
 
 const Routes = () => {
     return (
         <NavigationContainer>
             <AppStack.Navigator
-                headerMode="none"
                 screenOptions={{
-                    cardStyle: {
+                    headerShown: false,
+                    contentStyle: {
                         backgroundColor: '#f0f0f5'
                     }
                 }}

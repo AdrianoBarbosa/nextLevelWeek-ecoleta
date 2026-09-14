@@ -53,8 +53,17 @@ export const pointFields = (overrides: Record<string, string> = {}) => ({
     ...overrides,
 })
 
-export function postPoint(token: string | null, fields = pointFields(), image: { buffer: Buffer, contentType: string, filename?: string } | null = { buffer: PNG, contentType: 'image/png' }) {
-    const req = request(app).post('/points')
+type ImageUpload = { buffer: Buffer, contentType: string, filename?: string }
+
+export function postPoint(token: string | null, fields = pointFields(), image: ImageUpload | null = { buffer: PNG, contentType: 'image/png' }) {
+    return sendPoint(request(app).post('/points'), token, fields, image)
+}
+
+export function putPoint(id: number | string, token: string | null, fields = pointFields(), image: ImageUpload | null = null) {
+    return sendPoint(request(app).put(`/points/${id}`), token, fields, image)
+}
+
+function sendPoint(req: request.Test, token: string | null, fields: Record<string, string>, image: ImageUpload | null) {
 
     if (token)
         req.set('Authorization', `Bearer ${token}`)
@@ -94,4 +103,8 @@ export function uploadedFiles() {
 export function clearUploads() {
     for (const file of uploadedFiles())
         fs.rmSync(`${paths.uploads}/${file}`)
+}
+
+export function storeUpload(name: string) {
+    fs.writeFileSync(`${paths.uploads}/${name}`, PNG)
 }

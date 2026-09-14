@@ -19,13 +19,14 @@ The frontend register the locations through the website and people visit the app
 Structure with SQLite, RESTful API using Node.js (TypeScript runs natively on Node 24+, no build step).
 
 ### Authentication
-Users create an account (`POST /users`, password stored as a salted scrypt hash) and log in with `POST /sessions`, which returns a JWT (HS256). Registering a collection point requires `Authorization: Bearer <token>`:
+Users create an account (`POST /users`, password stored as a salted scrypt hash) and log in with `POST /sessions`, which returns a JWT (HS256). Registering, editing or deleting a collection point requires `Authorization: Bearer <token>`, and only the user who created a point can change it:
 
 | Route | Auth |
 | --- | --- |
 | `POST /users`, `POST /sessions` | public, rate limited |
 | `GET /items`, `GET /points`, `GET /points/:id` | public |
 | `POST /points` | JWT |
+| `PUT /points/:id`, `DELETE /points/:id` | JWT, owner only |
 
 Uploaded images must be JPEG, PNG or WebP up to 5MB. The file content is checked and the file is saved with a random name.
 

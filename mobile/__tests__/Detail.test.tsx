@@ -47,7 +47,7 @@ describe('Detail screen', () => {
 
     it('composes an e-mail and opens WhatsApp with an encoded message', async () => {
         jest.spyOn(api, 'get').mockResolvedValue({ data })
-        const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
+        const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined)
 
         await render(<Detail />)
 
